@@ -12,6 +12,7 @@ const isEmpty = (string) => {
 app.post('/create', (req, res) => {
   const newSerie = {
     name: req.body.name,
+    nameAlternative: req.body.nameAlternative,
     language: req.body.language,
     subtitles: req.body.subtitles,
     dateOrigin: req.body.dateOrigin,
@@ -20,12 +21,18 @@ app.post('/create', (req, res) => {
     coverImage: req.body.coverImage,
     thumbnailImage: req.body.thumbnailImage,
     chapterImage: req.body.chapterImage,
-    id: (req.body.name.toString().toLowerCase()).replace(/\s+/g, ''),
     dateUpload: new Date(Date.now()),
     chapter: {},
     genres: req.body.genres,
     type: req.body.type   
   };
+
+  if(isEmpty(newSerie.nameAlternative)){
+    newSerie.id = (req.body.name.toString().toLowerCase()).replace(/\s+/g, '');
+    newSerie.nameAlternative = req.body.name;
+  }else{
+    newSerie.id = (req.body.nameAlternative.toString().toLowerCase()).replace(/\s+/g, '');
+  }
 
   if(newSerie.finished === "true") newSerie.finished = true;
   else if(newSerie.finished === "false") newSerie.finished = false;
@@ -52,6 +59,35 @@ app.post('/create', (req, res) => {
         res.status(400).json({message: 'This series is already created'});
       }else{
         db.collection('series').doc(newSerie.id).set(newSerie);
+        return res.status(200).json({message: 'Successfully created series'});
+      }
+    })
+    .catch(err => {
+      return res.status(500).json({error: err.code});
+    })
+});
+
+
+// Method in charge of registering a new series with a Json file.
+app.post('/create2', (req, res) => {
+  var data = req.body.data;
+  var dataJson = JSON.parse(data);
+  dataJson.id = (dataJson.nameAlternative.toString().toLowerCase()).replace(/\s+/g, '');
+  db.doc(`/series/${dataJson.id}`).get()
+    .then((doc) => {
+      if(doc.exists){
+        res.status(400).json({message: 'This series is already created'});
+      }else{
+        let keys = Object.keys(dataJson.chapter);
+        let dataLast = {};
+        dataLast.image = dataJson.chapterImage;
+        dataLast.name = dataJson.name;
+        dataLast.number = keys.sort()[keys.length-1];
+        dataLast.serie = dataJson.id;
+
+        db.collection('series').doc(dataJson.id).set(dataJson);
+        db.collection('last').doc(((new Date()).getTime()).toString()).set(dataLast);
+
         return res.status(200).json({message: 'Successfully created series'});
       }
     })
